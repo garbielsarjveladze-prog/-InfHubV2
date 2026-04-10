@@ -6,13 +6,11 @@ local Window = Rayfield:CreateWindow({
     LoadingTitle = "Loading InfHub",
     LoadingSubtitle = "By Bacon_bybuur1221",
     Theme = "AmberGlow",
-
     ConfigurationSaving = {
        Enabled = true,
        FolderName = "InfHub_Configs", 
        FileName = "InfHub"
     },
-
     KeySystem = true,
     KeySettings = {
        Title = "Infhub Key",
@@ -27,15 +25,25 @@ local Window = Rayfield:CreateWindow({
 
 -- Variables
 local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
 local noclip = false
 local flying = false
 local flySpeed = 50
+local ws_val = 16
+local jp_val = 50
+
+-- Handle Respawning (keeps speed/jump after death)
+player.CharacterAdded:Connect(function(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum.WalkSpeed = ws_val
+    hum.JumpPower = jp_val
+    hum.UseJumpPower = true
+end)
 
 -- ==========================================
 -- MOVEMENT TAB
 -- ==========================================
 local MainTab = Window:CreateTab("Movement", 4483362458)
-
 MainTab:CreateSection("Character Modifiers")
 
 MainTab:CreateSlider({
@@ -45,6 +53,7 @@ MainTab:CreateSlider({
    Suffix = "Speed",
    CurrentValue = 16,
    Callback = function(Value)
+        ws_val = Value
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid.WalkSpeed = Value
         end
@@ -58,6 +67,7 @@ MainTab:CreateSlider({
    Suffix = "Power",
    CurrentValue = 50,
    Callback = function(Value)
+        jp_val = Value
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid.UseJumpPower = true
             player.Character.Humanoid.JumpPower = Value
@@ -68,16 +78,13 @@ MainTab:CreateSlider({
 MainTab:CreateToggle({
    Name = "No-Clip",
    CurrentValue = false,
-   Callback = function(Value)
-        noclip = Value
-   end,
+   Callback = function(Value) noclip = Value end,
 })
 
 -- ==========================================
 -- TELEPORT TAB
 -- ==========================================
 local TPTab = Window:CreateTab("Teleport", 4483362458)
-
 TPTab:CreateSection("Player Teleportation")
 
 TPTab:CreateInput({
@@ -90,7 +97,7 @@ TPTab:CreateInput({
             player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
             Rayfield:Notify({Title = "Teleport", Content = "Successfully teleported to " .. Text, Duration = 3})
         else
-            Rayfield:Notify({Title = "Error", Content = "Player not found or character missing!", Duration = 3})
+            Rayfield:Notify({Title = "Error", Content = "Player not found!", Duration = 3})
         end
    end,
 })
@@ -99,7 +106,6 @@ TPTab:CreateInput({
 -- FLY TAB
 -- ==========================================
 local FlyTab = Window:CreateTab("Fly", 4483362458)
-
 FlyTab:CreateSection("Flight Controls")
 
 FlyTab:CreateToggle({
@@ -115,14 +121,11 @@ FlyTab:CreateToggle({
             bv.Name = "FlyVelocity"
             bv.Parent = hrp
             bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(0,0,0)
             
             local bg = Instance.new("BodyGyro")
             bg.Name = "FlyGyro"
             bg.Parent = hrp
             bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            bg.D = 10
-            bg.P = 1000
             
             task.spawn(function()
                 while flying do
@@ -143,22 +146,16 @@ FlyTab:CreateSlider({
    Increment = 5,
    Suffix = "Speed",
    CurrentValue = 50,
-   Callback = function(Value)
-        flySpeed = Value
-   end,
+   Callback = function(Value) flySpeed = Value end,
 })
 
 -- ==========================================
--- BACKGROUND LOGIC
+-- LOOPS
 -- ==========================================
-
--- No-Clip Loop
-game:GetService("RunService").Stepped:Connect(function()
+RunService.Stepped:Connect(function()
     if noclip and player.Character then
         for _, part in pairs(player.Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
+            if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
 end)
