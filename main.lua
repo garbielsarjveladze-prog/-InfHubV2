@@ -5,11 +5,7 @@ local Window = Rayfield:CreateWindow({
     LoadingTitle = "InfHub Loading...",
     LoadingSubtitle = "By Bacon_bybuur1221",
     Theme = "AmberGlow",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "InfHub_Configs",
-        FileName = "InfHub"
-    },
+    ConfigurationSaving = { Enabled = true, FolderName = "InfHub_Configs", FileName = "InfHub" },
     KeySystem = true, 
     KeySettings = {
         Title = "Infhub Key",
@@ -32,19 +28,10 @@ local noclip = false
 local flying = false
 local flySpeed = 50
 local infJump = false
-local autoClicking = false
+local spinbot = false
+local antifling = false
 local clickTP = false
-local ws_val = 16
-local jp_val = 50
-
--- [[ Persistent Stats Logic ]] --
-player.CharacterAdded:Connect(function(char)
-    local hum = char:WaitForChild("Humanoid")
-    task.wait(0.5)
-    hum.WalkSpeed = ws_val
-    hum.JumpPower = jp_val
-    hum.UseJumpPower = true
-end)
+local autoClicking = false
 
 -- ==========================================
 -- MOVEMENT TAB
@@ -56,26 +43,7 @@ MoveTab:CreateSlider({
    Range = {16, 500},
    Increment = 1,
    CurrentValue = 16,
-   Callback = function(v) 
-       ws_val = v
-       if player.Character and player.Character:FindFirstChild("Humanoid") then 
-           player.Character.Humanoid.WalkSpeed = v 
-       end 
-   end,
-})
-
-MoveTab:CreateSlider({
-   Name = "JumpPower",
-   Range = {50, 500},
-   Increment = 1,
-   CurrentValue = 50,
-   Callback = function(v) 
-       jp_val = v
-       if player.Character and player.Character:FindFirstChild("Humanoid") then 
-           player.Character.Humanoid.UseJumpPower = true
-           player.Character.Humanoid.JumpPower = v 
-       end 
-   end,
+   Callback = function(v) if player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.WalkSpeed = v end end,
 })
 
 MoveTab:CreateToggle({
@@ -91,6 +59,32 @@ MoveTab:CreateToggle({
 })
 
 -- ==========================================
+-- PLAYER TAB
+-- ==========================================
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+
+PlayerTab:CreateToggle({
+   Name = "Freeze Character",
+   CurrentValue = false,
+   Callback = function(Value)
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.Anchored = Value
+        end
+   end,
+})
+
+PlayerTab:CreateToggle({
+   Name = "Anti-Fling",
+   CurrentValue = false,
+   Callback = function(Value) antifling = Value end,
+})
+
+PlayerTab:CreateButton({
+   Name = "Reset Character",
+   Callback = function() player.Character:BreakJoints() end,
+})
+
+-- ==========================================
 -- FLIGHT TAB
 -- ==========================================
 local FlyTab = Window:CreateTab("Flight", 4483362458)
@@ -100,26 +94,22 @@ FlyTab:CreateToggle({
    CurrentValue = false,
    Callback = function(Value)
         flying = Value
-        local char = player.Character
-        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
         if flying and hrp then
             local bv = Instance.new("BodyVelocity", hrp)
             bv.Name = "InfFlyVel"
             bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            
             local bg = Instance.new("BodyGyro", hrp)
             bg.Name = "InfFlyGyro"
             bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
             bg.P = 9000
-            
             task.spawn(function()
                 while flying and hrp and hrp.Parent do
-                    bv.Velocity = workspace.CurrentCamera.CFrame:VectorToWorldSpace(char.Humanoid.MoveDirection) * flySpeed
+                    bv.Velocity = workspace.CurrentCamera.CFrame:VectorToWorldSpace(player.Character.Humanoid.MoveDirection) * flySpeed
                     bg.CFrame = workspace.CurrentCamera.CFrame
                     task.wait()
                 end
-                if bv then bv:Destroy() end
-                if bg then bg:Destroy() end
+                bv:Destroy() bg:Destroy()
             end)
         end
    end,
@@ -139,28 +129,23 @@ FlyTab:CreateSlider({
 local VisualTab = Window:CreateTab("Visuals", 4483362458)
 
 VisualTab:CreateToggle({
-   Name = "Player ESP (Highlights)",
+   Name = "Player ESP",
    CurrentValue = false,
    Callback = function(Value)
         _G.ESP = Value
         task.spawn(function()
             while _G.ESP do
                 for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= player and p.Character then
-                        if not p.Character:FindFirstChild("InfHighlight") then
-                            local h = Instance.new("Highlight", p.Character)
-                            h.Name = "InfHighlight"
-                            h.FillColor = Color3.fromRGB(255, 165, 0)
-                            h.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        end
+                    if p ~= player and p.Character and not p.Character:FindFirstChild("InfHighlight") then
+                        local h = Instance.new("Highlight", p.Character)
+                        h.Name = "InfHighlight"
+                        h.FillColor = Color3.fromRGB(255, 165, 0)
                     end
                 end
                 task.wait(1)
             end
             for _, p in pairs(game.Players:GetPlayers()) do
-                if p.Character and p.Character:FindFirstChild("InfHighlight") then 
-                    p.Character.InfHighlight:Destroy() 
-                end
+                if p.Character and p.Character:FindFirstChild("InfHighlight") then p.Character.InfHighlight:Destroy() end
             end
         end)
    end,
@@ -171,33 +156,25 @@ VisualTab:CreateButton({
    Callback = function()
         game.Lighting.Brightness = 2
         game.Lighting.ClockTime = 14
-        game.Lighting.FogEnd = 100000
         game.Lighting.GlobalShadows = false
    end,
 })
 
-VisualTab:CreateInput({
-   Name = "Spectate Player",
-   PlaceholderText = "Username",
-   Callback = function(Text)
-        local target = game.Players:FindFirstChild(Text)
-        if target and target.Character then
-            workspace.CurrentCamera.CameraSubject = target.Character.Humanoid
-        else
-            workspace.CurrentCamera.CameraSubject = player.Character.Humanoid
-        end
-   end,
-})
-
 -- ==========================================
--- UTILITY TAB
+-- UTILITY & FUN TAB
 -- ==========================================
-local UtilTab = Window:CreateTab("Utility", 4483362458)
+local UtilTab = Window:CreateTab("Utility/Fun", 4483362458)
 
 UtilTab:CreateToggle({
    Name = "Click TP (Ctrl + Click)",
    CurrentValue = false,
    Callback = function(v) clickTP = v end,
+})
+
+UtilTab:CreateToggle({
+   Name = "SpinBot",
+   CurrentValue = false,
+   Callback = function(v) spinbot = v end,
 })
 
 UtilTab:CreateToggle({
@@ -214,15 +191,20 @@ UtilTab:CreateToggle({
    end,
 })
 
+UtilTab:CreateButton({
+   Name = "Anti-AFK",
+   Callback = function()
+        player.Idled:Connect(function()
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+        end)
+   end,
+})
+
 -- ==========================================
 -- SERVER TAB
 -- ==========================================
 local ServerTab = Window:CreateTab("Server", 4483362458)
-
-ServerTab:CreateButton({
-   Name = "Rejoin Server",
-   Callback = function() teleportService:Teleport(game.PlaceId, player) end,
-})
 
 ServerTab:CreateButton({
    Name = "Server Hop",
@@ -237,18 +219,23 @@ ServerTab:CreateButton({
    end,
 })
 
--- [[ Backend Loops ]] --
+-- [[ CORE LOOPS ]] --
 
-uis.JumpRequest:Connect(function()
-    if infJump and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-        player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+runService.Heartbeat:Connect(function()
+    if spinbot and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(50), 0)
     end
-end)
-
-mouse.Button1Down:Connect(function()
-    if clickTP and uis:IsKeyDown(Enum.KeyCode.LeftControl) then
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            player.Character.HumanoidRootPart.CFrame = mouse.Hit * CFrame.new(0, 3, 0)
+    
+    if antifling then
+        for _, v in pairs(game.Players:GetPlayers()) do
+            if v ~= player and v.Character then
+                for _, part in pairs(v.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                        part.Velocity = Vector3.new(0,0,0)
+                    end
+                end
+            end
         end
     end
 end)
@@ -261,4 +248,18 @@ runService.Stepped:Connect(function()
     end
 end)
 
-Rayfield:Notify({Title = "InfHub V2", Content = "Script Fully Loaded!"})
+uis.JumpRequest:Connect(function()
+    if infJump and player.Character:FindFirstChildOfClass("Humanoid") then
+        player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+    end
+end)
+
+mouse.Button1Down:Connect(function()
+    if clickTP and uis:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = mouse.Hit * CFrame.new(0, 3, 0)
+        end
+    end
+end)
+
+Rayfield:Notify({Title = "InfHub V2", Content = "Full Script Loaded Successfully!"})
