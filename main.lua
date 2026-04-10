@@ -1,20 +1,12 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "InfHub V2 | Ultimate Utility",
+    Name = "InfHub V2 | Public Utility",
     LoadingTitle = "InfHub Loading...",
     LoadingSubtitle = "By Bacon_bybuur1221",
     Theme = "AmberGlow",
-    ConfigurationSaving = { Enabled = true, FolderName = "InfHub_Configs", FileName = "InfHub" },
-    KeySystem = true, 
-    KeySettings = {
-        Title = "Infhub Key",
-        Subtitle = "Key System",
-        Note = "Key: best hub",
-        FileName = "InfhubKey",
-        SaveKey = true,
-        Key = {"best hub"}
-    }
+    ConfigurationSaving = { Enabled = false },
+    KeySystem = false -- Key System Removed
 })
 
 -- [[ Variables ]] --
@@ -28,10 +20,13 @@ local noclip = false
 local flying = false
 local flySpeed = 50
 local infJump = false
-local spinbot = false
 local antifling = false
-local clickTP = false
 local autoClicking = false
+
+-- Classic Fly Logic Variables
+local ctrl = {f = 0, b = 0, l = 0, r = 0}
+local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+local speed = 0
 
 -- ==========================================
 -- MOVEMENT TAB
@@ -43,7 +38,25 @@ MoveTab:CreateSlider({
    Range = {16, 500},
    Increment = 1,
    CurrentValue = 16,
-   Callback = function(v) if player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.WalkSpeed = v end end,
+   Callback = function(v) 
+       if player.Character:FindFirstChild("Humanoid") then 
+           player.Character.Humanoid.WalkSpeed = v 
+       end 
+   end,
+})
+
+MoveTab:CreateSlider({
+   Name = "JumpPower / Height",
+   Range = {50, 500},
+   Increment = 1,
+   CurrentValue = 50,
+   Callback = function(v) 
+       if player.Character:FindFirstChild("Humanoid") then 
+           player.Character.Humanoid.UseJumpPower = true
+           player.Character.Humanoid.JumpPower = v 
+           player.Character.Humanoid.JumpHeight = v
+       end 
+   end,
 })
 
 MoveTab:CreateToggle({
@@ -59,57 +72,55 @@ MoveTab:CreateToggle({
 })
 
 -- ==========================================
--- PLAYER TAB
--- ==========================================
-local PlayerTab = Window:CreateTab("Player", 4483362458)
-
-PlayerTab:CreateToggle({
-   Name = "Freeze Character",
-   CurrentValue = false,
-   Callback = function(Value)
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            player.Character.HumanoidRootPart.Anchored = Value
-        end
-   end,
-})
-
-PlayerTab:CreateToggle({
-   Name = "Anti-Fling",
-   CurrentValue = false,
-   Callback = function(Value) antifling = Value end,
-})
-
-PlayerTab:CreateButton({
-   Name = "Reset Character",
-   Callback = function() player.Character:BreakJoints() end,
-})
-
--- ==========================================
 -- FLIGHT TAB
 -- ==========================================
 local FlyTab = Window:CreateTab("Flight", 4483362458)
 
 FlyTab:CreateToggle({
-   Name = "Power Fly (WASD)",
+   Name = "Classic Exploit Fly",
    CurrentValue = false,
    Callback = function(Value)
         flying = Value
-        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-        if flying and hrp then
-            local bv = Instance.new("BodyVelocity", hrp)
-            bv.Name = "InfFlyVel"
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            local bg = Instance.new("BodyGyro", hrp)
-            bg.Name = "InfFlyGyro"
-            bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            bg.P = 9000
+        local char = player.Character
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local torso = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+        
+        if flying and torso and hum then
+            local bg = Instance.new("BodyGyro", torso)
+            bg.P = 9e4
+            bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+            bg.cframe = torso.CFrame
+            
+            local bv = Instance.new("BodyVelocity", torso)
+            bv.velocity = Vector3.new(0,0.1,0)
+            bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+            
             task.spawn(function()
-                while flying and hrp and hrp.Parent do
-                    bv.Velocity = workspace.CurrentCamera.CFrame:VectorToWorldSpace(player.Character.Humanoid.MoveDirection) * flySpeed
-                    bg.CFrame = workspace.CurrentCamera.CFrame
+                while flying and torso and torso.Parent do
+                    hum.PlatformStand = true
+                    if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+                        speed = speed + .5 + (speed / flySpeed)
+                        if speed > flySpeed then speed = flySpeed end
+                    elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and speed ~= 0 then
+                        speed = speed - 1
+                        if speed < 0 then speed = 0 end
+                    end
+                    
+                    if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+                        bv.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - workspace.CurrentCamera.CoordinateFrame.p))*speed
+                        lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+                    elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and speed ~= 0 then
+                        bv.velocity = ((workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - workspace.CurrentCamera.CoordinateFrame.p))*speed
+                    else
+                        bv.velocity = Vector3.new(0,0.1,0)
+                    end
+                    bg.cframe = workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*speed/flySpeed),0,0)
                     task.wait()
                 end
-                bv:Destroy() bg:Destroy()
+                speed = 0
+                if bg then bg:Destroy() end
+                if bv then bv:Destroy() end
+                if hum then hum.PlatformStand = false end
             end)
         end
    end,
@@ -124,11 +135,17 @@ FlyTab:CreateSlider({
 })
 
 -- ==========================================
--- VISUALS TAB
+-- PLAYER & VISUALS TAB
 -- ==========================================
-local VisualTab = Window:CreateTab("Visuals", 4483362458)
+local PlayerTab = Window:CreateTab("Player", 4483362458)
 
-VisualTab:CreateToggle({
+PlayerTab:CreateToggle({
+   Name = "Anti-Fling",
+   CurrentValue = false,
+   Callback = function(v) antifling = v end,
+})
+
+PlayerTab:CreateToggle({
    Name = "Player ESP",
    CurrentValue = false,
    Callback = function(Value)
@@ -151,31 +168,15 @@ VisualTab:CreateToggle({
    end,
 })
 
-VisualTab:CreateButton({
-   Name = "Fullbright",
-   Callback = function()
-        game.Lighting.Brightness = 2
-        game.Lighting.ClockTime = 14
-        game.Lighting.GlobalShadows = false
-   end,
+PlayerTab:CreateButton({
+   Name = "Reset Character",
+   Callback = function() player.Character:BreakJoints() end,
 })
 
 -- ==========================================
--- UTILITY & FUN TAB
+-- UTILITY TAB
 -- ==========================================
-local UtilTab = Window:CreateTab("Utility/Fun", 4483362458)
-
-UtilTab:CreateToggle({
-   Name = "Click TP (Ctrl + Click)",
-   CurrentValue = false,
-   Callback = function(v) clickTP = v end,
-})
-
-UtilTab:CreateToggle({
-   Name = "SpinBot",
-   CurrentValue = false,
-   Callback = function(v) spinbot = v end,
-})
+local UtilTab = Window:CreateTab("Utility", 4483362458)
 
 UtilTab:CreateToggle({
    Name = "Auto-Clicker",
@@ -192,21 +193,6 @@ UtilTab:CreateToggle({
 })
 
 UtilTab:CreateButton({
-   Name = "Anti-AFK",
-   Callback = function()
-        player.Idled:Connect(function()
-            game:GetService("VirtualUser"):CaptureController()
-            game:GetService("VirtualUser"):ClickButton2(Vector2.new())
-        end)
-   end,
-})
-
--- ==========================================
--- SERVER TAB
--- ==========================================
-local ServerTab = Window:CreateTab("Server", 4483362458)
-
-ServerTab:CreateButton({
    Name = "Server Hop",
    Callback = function()
         local servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
@@ -219,13 +205,24 @@ ServerTab:CreateButton({
    end,
 })
 
--- [[ CORE LOOPS ]] --
+-- [[ LOOPS & INPUT HANDLERS ]] --
+
+uis.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.W then ctrl.f = 1
+    elseif input.KeyCode == Enum.KeyCode.S then ctrl.b = -1
+    elseif input.KeyCode == Enum.KeyCode.A then ctrl.l = -1
+    elseif input.KeyCode == Enum.KeyCode.D then ctrl.r = 1 end
+end)
+
+uis.InputEnded:Connect(function(input, gpe)
+    if input.KeyCode == Enum.KeyCode.W then ctrl.f = 0
+    elseif input.KeyCode == Enum.KeyCode.S then ctrl.b = 0
+    elseif input.KeyCode == Enum.KeyCode.A then ctrl.l = 0
+    elseif input.KeyCode == Enum.KeyCode.D then ctrl.r = 0 end
+end)
 
 runService.Heartbeat:Connect(function()
-    if spinbot and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(50), 0)
-    end
-    
     if antifling then
         for _, v in pairs(game.Players:GetPlayers()) do
             if v ~= player and v.Character then
@@ -233,6 +230,7 @@ runService.Heartbeat:Connect(function()
                     if part:IsA("BasePart") then
                         part.CanCollide = false
                         part.Velocity = Vector3.new(0,0,0)
+                        part.RotVelocity = Vector3.new(0,0,0)
                     end
                 end
             end
@@ -254,12 +252,4 @@ uis.JumpRequest:Connect(function()
     end
 end)
 
-mouse.Button1Down:Connect(function()
-    if clickTP and uis:IsKeyDown(Enum.KeyCode.LeftControl) then
-        if player.Character:FindFirstChild("HumanoidRootPart") then
-            player.Character.HumanoidRootPart.CFrame = mouse.Hit * CFrame.new(0, 3, 0)
-        end
-    end
-end)
-
-Rayfield:Notify({Title = "InfHub V2", Content = "Full Script Loaded Successfully!"})
+Rayfield:Notify({Title = "InfHub V2", Content = "Loaded! Welcome, " .. player.Name})
