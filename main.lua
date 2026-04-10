@@ -1,40 +1,46 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "InfHub",
-    Icon = 0, 
-    LoadingTitle = "Loading InfHub",
+    Name = "InfHub V2 | Ultimate Utility",
+    LoadingTitle = "InfHub Loading...",
     LoadingSubtitle = "By Bacon_bybuur1221",
     Theme = "AmberGlow",
     ConfigurationSaving = {
-       Enabled = true,
-       FolderName = "InfHub_Configs", 
-       FileName = "InfHub"
+        Enabled = true,
+        FolderName = "InfHub_Configs",
+        FileName = "InfHub"
     },
-    KeySystem = true,
+    KeySystem = true, 
     KeySettings = {
-       Title = "Infhub Key",
-       Subtitle = "Key System",
-       Note = "The key is: best hub",
-       FileName = "InfhubKey",
-       SaveKey = true,
-       GrabKeyFromSite = false,
-       Key = {"best hub"}
+        Title = "Infhub Key",
+        Subtitle = "Key System",
+        Note = "Key: best hub",
+        FileName = "InfhubKey",
+        SaveKey = true,
+        Key = {"best hub"}
     }
 })
 
--- Variables
+-- [[ Variables ]] --
 local player = game.Players.LocalPlayer
-local RunService = game:GetService("RunService")
+local mouse = player:GetMouse()
+local runService = game:GetService("RunService")
+local uis = game:GetService("UserInputService")
+local teleportService = game:GetService("TeleportService")
+
 local noclip = false
 local flying = false
 local flySpeed = 50
+local infJump = false
+local autoClicking = false
+local clickTP = false
 local ws_val = 16
 local jp_val = 50
 
--- Handle Respawning (keeps speed/jump after death)
+-- [[ Persistent Stats Logic ]] --
 player.CharacterAdded:Connect(function(char)
     local hum = char:WaitForChild("Humanoid")
+    task.wait(0.5)
     hum.WalkSpeed = ws_val
     hum.JumpPower = jp_val
     hum.UseJumpPower = true
@@ -43,98 +49,77 @@ end)
 -- ==========================================
 -- MOVEMENT TAB
 -- ==========================================
-local MainTab = Window:CreateTab("Movement", 4483362458)
-MainTab:CreateSection("Character Modifiers")
+local MoveTab = Window:CreateTab("Movement", 4483362458)
 
-MainTab:CreateSlider({
+MoveTab:CreateSlider({
    Name = "WalkSpeed",
    Range = {16, 500},
    Increment = 1,
-   Suffix = "Speed",
    CurrentValue = 16,
-   Callback = function(Value)
-        ws_val = Value
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = Value
-        end
+   Callback = function(v) 
+       ws_val = v
+       if player.Character and player.Character:FindFirstChild("Humanoid") then 
+           player.Character.Humanoid.WalkSpeed = v 
+       end 
    end,
 })
 
-MainTab:CreateSlider({
-   Name = "JumpHeight",
+MoveTab:CreateSlider({
+   Name = "JumpPower",
    Range = {50, 500},
    Increment = 1,
-   Suffix = "Power",
    CurrentValue = 50,
-   Callback = function(Value)
-        jp_val = Value
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.UseJumpPower = true
-            player.Character.Humanoid.JumpPower = Value
-        end
+   Callback = function(v) 
+       jp_val = v
+       if player.Character and player.Character:FindFirstChild("Humanoid") then 
+           player.Character.Humanoid.UseJumpPower = true
+           player.Character.Humanoid.JumpPower = v 
+       end 
    end,
 })
 
-MainTab:CreateToggle({
+MoveTab:CreateToggle({
+   Name = "Infinite Jump",
+   CurrentValue = false,
+   Callback = function(v) infJump = v end,
+})
+
+MoveTab:CreateToggle({
    Name = "No-Clip",
    CurrentValue = false,
-   Callback = function(Value) noclip = Value end,
+   Callback = function(v) noclip = v end,
 })
 
 -- ==========================================
--- TELEPORT TAB
+-- FLIGHT TAB
 -- ==========================================
-local TPTab = Window:CreateTab("Teleport", 4483362458)
-TPTab:CreateSection("Player Teleportation")
-
-TPTab:CreateInput({
-   Name = "TP to Player",
-   PlaceholderText = "Exact Username",
-   RemoveTextAfterFocusLost = false,
-   Callback = function(Text)
-        local target = game.Players:FindFirstChild(Text)
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
-            Rayfield:Notify({Title = "Teleport", Content = "Successfully teleported to " .. Text, Duration = 3})
-        else
-            Rayfield:Notify({Title = "Error", Content = "Player not found!", Duration = 3})
-        end
-   end,
-})
-
--- ==========================================
--- FLY TAB
--- ==========================================
-local FlyTab = Window:CreateTab("Fly", 4483362458)
-FlyTab:CreateSection("Flight Controls")
+local FlyTab = Window:CreateTab("Flight", 4483362458)
 
 FlyTab:CreateToggle({
-   Name = "Enable Fly",
+   Name = "Power Fly (WASD)",
    CurrentValue = false,
    Callback = function(Value)
         flying = Value
         local char = player.Character
         local hrp = char:FindFirstChild("HumanoidRootPart")
-        
         if flying and hrp then
-            local bv = Instance.new("BodyVelocity")
-            bv.Name = "FlyVelocity"
-            bv.Parent = hrp
+            local bv = Instance.new("BodyVelocity", hrp)
+            bv.Name = "InfFlyVel"
             bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
             
-            local bg = Instance.new("BodyGyro")
-            bg.Name = "FlyGyro"
-            bg.Parent = hrp
+            local bg = Instance.new("BodyGyro", hrp)
+            bg.Name = "InfFlyGyro"
             bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bg.P = 9000
             
             task.spawn(function()
-                while flying do
-                    bv.Velocity = game.Workspace.CurrentCamera.CFrame.LookVector * flySpeed
-                    bg.CFrame = game.Workspace.CurrentCamera.CFrame
+                while flying and hrp and hrp.Parent do
+                    bv.Velocity = workspace.CurrentCamera.CFrame:VectorToWorldSpace(char.Humanoid.MoveDirection) * flySpeed
+                    bg.CFrame = workspace.CurrentCamera.CFrame
                     task.wait()
                 end
-                bv:Destroy()
-                bg:Destroy()
+                if bv then bv:Destroy() end
+                if bg then bg:Destroy() end
             end)
         end
    end,
@@ -144,25 +129,136 @@ FlyTab:CreateSlider({
    Name = "Fly Speed",
    Range = {10, 500},
    Increment = 5,
-   Suffix = "Speed",
    CurrentValue = 50,
-   Callback = function(Value) flySpeed = Value end,
+   Callback = function(v) flySpeed = v end,
 })
 
 -- ==========================================
--- LOOPS
+-- VISUALS TAB
 -- ==========================================
-RunService.Stepped:Connect(function()
-    if noclip and player.Character then
-        for _, part in pairs(player.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
+local VisualTab = Window:CreateTab("Visuals", 4483362458)
+
+VisualTab:CreateToggle({
+   Name = "Player ESP (Highlights)",
+   CurrentValue = false,
+   Callback = function(Value)
+        _G.ESP = Value
+        task.spawn(function()
+            while _G.ESP do
+                for _, p in pairs(game.Players:GetPlayers()) do
+                    if p ~= player and p.Character then
+                        if not p.Character:FindFirstChild("InfHighlight") then
+                            local h = Instance.new("Highlight", p.Character)
+                            h.Name = "InfHighlight"
+                            h.FillColor = Color3.fromRGB(255, 165, 0)
+                            h.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        end
+                    end
+                end
+                task.wait(1)
+            end
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p.Character and p.Character:FindFirstChild("InfHighlight") then 
+                    p.Character.InfHighlight:Destroy() 
+                end
+            end
+        end)
+   end,
+})
+
+VisualTab:CreateButton({
+   Name = "Fullbright",
+   Callback = function()
+        game.Lighting.Brightness = 2
+        game.Lighting.ClockTime = 14
+        game.Lighting.FogEnd = 100000
+        game.Lighting.GlobalShadows = false
+   end,
+})
+
+VisualTab:CreateInput({
+   Name = "Spectate Player",
+   PlaceholderText = "Username",
+   Callback = function(Text)
+        local target = game.Players:FindFirstChild(Text)
+        if target and target.Character then
+            workspace.CurrentCamera.CameraSubject = target.Character.Humanoid
+        else
+            workspace.CurrentCamera.CameraSubject = player.Character.Humanoid
+        end
+   end,
+})
+
+-- ==========================================
+-- UTILITY TAB
+-- ==========================================
+local UtilTab = Window:CreateTab("Utility", 4483362458)
+
+UtilTab:CreateToggle({
+   Name = "Click TP (Ctrl + Click)",
+   CurrentValue = false,
+   Callback = function(v) clickTP = v end,
+})
+
+UtilTab:CreateToggle({
+   Name = "Auto-Clicker",
+   CurrentValue = false,
+   Callback = function(Value)
+        autoClicking = Value
+        task.spawn(function()
+            while autoClicking do
+                task.wait(0.01)
+                if mouse1click then mouse1click() end
+            end
+        end)
+   end,
+})
+
+-- ==========================================
+-- SERVER TAB
+-- ==========================================
+local ServerTab = Window:CreateTab("Server", 4483362458)
+
+ServerTab:CreateButton({
+   Name = "Rejoin Server",
+   Callback = function() teleportService:Teleport(game.PlaceId, player) end,
+})
+
+ServerTab:CreateButton({
+   Name = "Server Hop",
+   Callback = function()
+        local servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+        for _, s in pairs(servers.data) do
+            if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                teleportService:TeleportToPlaceInstance(game.PlaceId, s.id)
+                break
+            end
+        end
+   end,
+})
+
+-- [[ Backend Loops ]] --
+
+uis.JumpRequest:Connect(function()
+    if infJump and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+        player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+    end
+end)
+
+mouse.Button1Down:Connect(function()
+    if clickTP and uis:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = mouse.Hit * CFrame.new(0, 3, 0)
         end
     end
 end)
 
-Rayfield:Notify({
-   Title = "InfHub Loaded",
-   Content = "Welcome back, Bacon_bybuur1221!",
-   Duration = 5,
-   Image = 4483362458,
-})
+runService.Stepped:Connect(function()
+    if noclip and player.Character then
+        for _, v in pairs(player.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+end)
+
+Rayfield:Notify({Title = "InfHub V2", Content = "Script Fully Loaded!"})
