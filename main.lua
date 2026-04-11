@@ -1,5 +1,5 @@
--- [[ InfHub V2 | RedzHub Style UI ]] --
--- Custom sidebar UI matching RedzHub aesthetic
+-- [[ InfHub V2 | 
+
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
